@@ -1,18 +1,20 @@
-from html2image import Html2Image
-import base64
-from IPython.display import display, HTML
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.options import Options
 from PIL import Image
+import base64
+import os
 
-def generate_profile(name, student_major, team, photo_path, introduction, output_image_path="profile_output.png"):
-    """
-    Generates and displays the profile in HTML format and saves it as an image with the photo on the left and text on the right.
-    """
-    # Convert the image to base64 after ensuring it's square
+
+def generate_profile(
+    name, student_major, team, photo_path, introduction, output_image_path
+):
+    # 이미지를 base64로 변환
     photo_tag = "<p>[Photo not available]</p>"
     if photo_path:
         base64_photo = image_to_base64(photo_path)
         photo_tag = f'<img src="data:image/jpeg;base64,{base64_photo}" alt="Profile Photo" class="profileImg" />'
-
     # HTML content with embedded CSS for the layout
     div_content = f"""
     <link href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=IBM+Plex+Sans+KR:wght@400;600;700&display=swap" rel="stylesheet">
@@ -99,15 +101,29 @@ def generate_profile(name, student_major, team, photo_path, introduction, output
     </div>
     """
 
-    # Display HTML in Jupyter Notebook
-    display(HTML(div_content))
+    # Selenium 설정
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")  # 헤드리스 모드
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
 
-    hti = Html2Image()
-    hti.screenshot(
-        html_str=div_content,
-        save_as=output_image_path,
-        size=(1920, 1080)
+    driver = webdriver.Chrome(
+        service=Service(ChromeDriverManager().install()), options=chrome_options
     )
+
+    # HTML 파일 생성 및 로드
+    with open("temp.html", "w", encoding="utf-8") as f:
+        f.write(div_content)
+
+    driver.get("file://" + os.path.abspath("temp.html"))
+    driver.set_window_size(1920, 1080)  # 원하는 크기로 설정
+
+    # 스크린샷 찍기
+    driver.save_screenshot(output_image_path)
+
+    driver.quit()
+    os.remove("temp.html")  # 임시 HTML 파일 삭제
+
     print(f"Profile card saved as image: {output_image_path}")
 
 
@@ -116,13 +132,15 @@ def image_to_base64(image_path):
     Converts an image file to base64 string.
     """
     with open(image_path, "rb") as img_file:
-        return base64.b64encode(img_file.read()).decode('utf-8')
-#과제--------------------------------------------------------------------------------
+        return base64.b64encode(img_file.read()).decode("utf-8")
+
+
+# 과제--------------------------------------------------------------------------------
 # 과제-1:팀 이름 입력(농구/야구/축구/E-Sports 중 적어주세요)
 team = "축구"
 
 # 과제-2:본인을 나타내는 사진을 !반드시! 동일 폴더 안에 넣고 아래에 옳은 파일명을 입력해주세요
-photo_path = 'image.jpg'
+photo_path = "image.jpg"
 
 # 과제-3 한 줄 이내의 짧은 소개글을 써주세요
 introduction = "모든 스포츠를 다 보는 축구팀 새내기 박성민입니다!"
@@ -132,4 +150,13 @@ name = input("Enter your name: ")
 student_major = input("Enter your major: ")
 
 # Generate and save profile as an image
-generate_profile(name, student_major, team, photo_path, introduction, output_image_path=name+"_profile.png")
+generate_profile(
+    name,
+    student_major,
+    team,
+    photo_path,
+    introduction,
+    output_image_path=name + "_profile.png",
+)
+
+
